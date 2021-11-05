@@ -13,12 +13,20 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.net.NetworkSpecifier;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiNetworkSpecifier;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PatternMatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -30,6 +38,8 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import javax.net.SocketFactory;
 
 public class MyActivity extends AppCompatActivity {
 
@@ -216,7 +226,7 @@ public class MyActivity extends AppCompatActivity {
         mSendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                /*try {
+                try {
                     Thread thread = new Thread(new Runnable() {
 
                         @Override
@@ -238,14 +248,18 @@ public class MyActivity extends AppCompatActivity {
                     thread.start();
                 } catch (Exception e) {
                     e.printStackTrace();
-                }*/
+                }
             }
         });
 
         mConnectToAPButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                connectToWifi("DrAromas", "123456789");
+                if(Build.VERSION.SDK_INT < 29) {
+                    connectToWifi("DrAromas", "123456789");
+                } else {
+                    connectToWifiNewerAPI(MyActivity.this);
+                }
             }
         });
 
@@ -264,7 +278,68 @@ public class MyActivity extends AppCompatActivity {
         mConnectToAPButton.callOnClick();
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.Q)
+    private void connectToWifiNewerAPI(Context context) {
+        final NetworkSpecifier specifier =
+                new WifiNetworkSpecifier.Builder().setSsidPattern(new PatternMatcher("DrAromas", PatternMatcher.PATTERN_PREFIX))
+                        .setWpa2Passphrase("123456789")
+                        .build();
+
+        final NetworkRequest request =
+                new NetworkRequest.Builder()
+                        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                        .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED)
+                        .setNetworkSpecifier(specifier)
+                        .build();
+
+        final ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@androidx.annotation.NonNull Network network) {
+                super.onAvailable(network);
+                Log.d(TAG, "NETWORK AVAILABLE!");
+
+                try {
+                    byte [] ip_raw = new byte[]{(byte) 192, (byte) 168, (byte)4, (byte)1};
+                    InetAddress serverAddr = InetAddress.getByAddress(ip_raw);
+
+                    SocketFactory sf = network.getSocketFactory();
+                    socket = sf.createSocket(serverAddr, SERVERPORT);
+
+                    while(!socket.isConnected()) {
+
+                    }
+                    updateConversationHandler.post(new updateUIThread("Socket connected."));
+
+                    // create receive thread
+                    commThread = new Thread(new CommunicationThread(socket));
+                    commThread.start();
+
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+
+                /*SocketFactory sf = network.getSocketFactory();
+
+                try {
+                    //byte[] byte_buf = new byte[4];
+                    byte [] ip_raw = new byte[]{(byte) 192, (byte) 168, 4, 1};
+                    InetAddress serverAddr = InetAddress.getByAddress(ip_raw);
+                    //socket = new Socket(serverAddr, SERVERPORT);
+                    socket = sf.createSocket(serverAddr, SERVERPORT);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }*/
+            }
+        };
+
+        connectivityManager.requestNetwork(request, networkCallback);
+    }
+
     private void connectToWifi(final String networkSSID, final String networkPassword) {
+        // for api older than Android 10
         int netID = -1;
         String confSSID = String.format("\"%s\"", networkSSID);
         String confPassword = String.format("\"%s\"", networkPassword);
@@ -521,7 +596,7 @@ public class MyActivity extends AppCompatActivity {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    //@RequiresApi(api = Build.VERSION_CODES.O)
     public static byte[] getCRC(byte[] payload, int len) {
         byte[] calculatedCRC = new byte[2];
 
