@@ -14,26 +14,22 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
         android:text="Enter IP address of server device:"
-        android:textAppearance="@style/TextAppearance.AppCompat.Light.SearchResult.Title"
-        android:theme="@style/Theme.Socket_app" />
+        android:textAppearance="@style/TextAppearance.AppCompat.Light.SearchResult.Title" />
 
     <EditText
         android:id="@+id/ipPrompt"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ems="10"
-        android:inputType="textPersonName"
-        android:theme="@style/Theme.Socket_app" />
+        android:inputType="textPersonName" />
 
     <Button
         android:id="@+id/enterIP"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enter"
-        android:theme="@style/Theme.Socket_app" />
+        android:text="Enter" />
 
     <ListView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:theme="@style/Theme.Socket_app" />
+        android:layout_height="match_parent" />
 </LinearLayout>

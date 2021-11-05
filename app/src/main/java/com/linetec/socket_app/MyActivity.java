@@ -6,18 +6,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
-import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -27,6 +28,8 @@ import android.widget.ListView;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MyActivity extends AppCompatActivity {
 
@@ -47,13 +50,15 @@ public class MyActivity extends AppCompatActivity {
     private static final byte messageStart = 0x7E;
     private static final byte messageEnd = 0x7F;
 
-    private int status=STATUS_SSID_CHECK;
-    private int substate=0;
+    private int status = STATUS_SSID_CHECK;
+    private int substate = 0;
 
     private ByteBuffer lastMessageSent = ByteBuffer.allocate(100);
 
-    private ArrayList<String> listItems=new ArrayList<String>();
+    private ArrayList<String> listItems = new ArrayList<String>();
     private ArrayAdapter<String> adapter;
+
+    WifiManager wifiManager;
 
     Handler updateConversationHandler;
     Thread clientThread;
@@ -66,6 +71,7 @@ public class MyActivity extends AppCompatActivity {
     private Button mConfigAllButton;
     private Button mSendSSIDButton;
     private Button mSendPassButton;
+    private Button mConnectToAPButton;
     private EditText mSendEditText;
     private EditText mSSIDEditText;
     private EditText mPassEditText;
@@ -81,14 +87,17 @@ public class MyActivity extends AppCompatActivity {
         mDisconnectButton = findViewById(R.id.disconnect_button);
         mAPtoSTAButton = findViewById(R.id.ap_to_sta_button);
         mConfigAllButton = findViewById(R.id.cfg_all_button);
-        mSendSSIDButton = findViewById(R.id.button2);
-        mSendPassButton = findViewById(R.id.button3);
-        mSendEditText = findViewById(R.id.editText);
+        mSendSSIDButton = findViewById(R.id.send_ssid_button);
+        mSendPassButton = findViewById(R.id.send_pass_button);
+        mConnectToAPButton = findViewById(R.id.connect_to_ap_button);
+        mSendEditText = findViewById(R.id.send_to_socket_edittext);
         mSSIDEditText = findViewById(R.id.ssid_edittext);
         mPassEditText = findViewById(R.id.pass_edittext);
-        mReceiveListView = findViewById(R.id.list);
+        mReceiveListView = findViewById(R.id.receive_list);
 
-        adapter=new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, listItems);
+        wifiManager = (WifiManager) super.getSystemService(android.content.Context.WIFI_SERVICE);
+
+        adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, listItems);
         mReceiveListView.setAdapter(adapter);
 
         updateConversationHandler = new Handler();
@@ -105,7 +114,7 @@ public class MyActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 try {
-                    if(socket!=null) {
+                    if (socket != null) {
                         socket.close();
                     }
                     updateConversationHandler.post(new updateUIThread("Socket closed."));
@@ -207,12 +216,12 @@ public class MyActivity extends AppCompatActivity {
         mSendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                try {
+                /*try {
                     Thread thread = new Thread(new Runnable() {
 
                         @Override
                         public void run() {
-                            try  {
+                            try {
                                 OutputStream out = new DataOutputStream(socket.getOutputStream());
 
                                 ByteBuffer charSendBuff = ByteBuffer.allocate(100);
@@ -229,9 +238,81 @@ public class MyActivity extends AppCompatActivity {
                     thread.start();
                 } catch (Exception e) {
                     e.printStackTrace();
-                }
+                }*/
             }
         });
+
+        mConnectToAPButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                connectToWifi("DrAromas", "123456789");
+            }
+        });
+
+        // check GPS permission
+        try {
+            if (ContextCompat.checkSelfPermission(getApplicationContext(),
+                    android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 101);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // connect automatically to preferred network at start of activity
+        mConnectToAPButton.callOnClick();
+    }
+
+    private void connectToWifi(final String networkSSID, final String networkPassword) {
+        int netID = -1;
+        String confSSID = String.format("\"%s\"", networkSSID);
+        String confPassword = String.format("\"%s\"", networkPassword);
+
+        netID = getExistingNetworkID(confSSID, netID);
+        /*
+         * If ssid not found in preconfigured list it will return -1
+         * then add new wifi
+         */
+        if (netID == -1) {
+
+            Log.d(TAG, "New wifi config added");
+
+            WifiConfiguration conf = new WifiConfiguration();
+            conf.SSID = confSSID;
+            conf.preSharedKey = confPassword;
+            netID = wifiManager.addNetwork(conf);
+
+        }
+        wifiManager.disconnect();
+        wifiManager.enableNetwork(netID, true);
+        wifiManager.reconnect();
+    }
+
+    private int getExistingNetworkID(String confSSID, int netID) {
+
+        try {
+            if (ContextCompat.checkSelfPermission(getApplicationContext(),
+                    android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 101);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        List<WifiConfiguration> wifiConfigurationList = wifiManager.getConfiguredNetworks();
+        for (WifiConfiguration item : wifiConfigurationList){
+        /*
+          Find if the SSID is in the preconfigured list - if found get netID
+         */
+            if (item.SSID != null && item.SSID.equals(confSSID)){
+
+                Log.d(TAG, "Pre-configured running");
+                netID = item.networkId;
+                break;
+            }
+        }
+        return netID;
     }
 
     private void sendSSID() throws InterruptedException {
@@ -381,7 +462,6 @@ public class MyActivity extends AppCompatActivity {
                     int bytesRead = inputStream.read(byte_buf);
 
                     if(bytesRead < 0) {
-                        //updateConversationHandler.post(new updateUIThread("EOF"));
                         socket.close();
                         inputStream.close();
                     } else if(bytesRead == 0) {
