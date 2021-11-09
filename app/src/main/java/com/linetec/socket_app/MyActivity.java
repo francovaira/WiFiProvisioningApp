@@ -126,8 +126,8 @@ public class MyActivity extends AppCompatActivity {
                 try {
                     if (socket != null) {
                         socket.close();
+                        updateConversationHandler.post(new updateUIThread("Socket closed."));
                     }
-                    updateConversationHandler.post(new updateUIThread("Socket closed."));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -144,49 +144,6 @@ public class MyActivity extends AppCompatActivity {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-
-                /*Thread threadControl = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try  {
-                            while(status!=STATUS_OK)
-                            {
-                                switch (status)
-                                {
-                                    case STATUS_SSID_CHECK:
-                                        if (substate <= 0) {
-                                            threadSSID.start();
-                                            substate++;
-                                        }
-                                        break;
-
-                                    case STATUS_PASS_CHECK:
-                                        if (substate <= 0) {
-                                            threadPASS.start();
-                                            substate++;
-                                        }
-                                        break;
-                                }
-                            }
-
-                            threadChangeMode.start();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
-
-                try {
-                    threadSSID.start();
-                    threadSSID.join();
-                    threadPASS.start();
-                    threadPASS.join();
-                    threadChangeMode.start();
-                    threadChangeMode.join();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    Log.d(TAG, "THREAD: failed tasks.");
-                }*/
             }
         });
 
@@ -320,18 +277,6 @@ public class MyActivity extends AppCompatActivity {
                 } catch (IOException e1) {
                     e1.printStackTrace();
                 }
-
-                /*SocketFactory sf = network.getSocketFactory();
-
-                try {
-                    //byte[] byte_buf = new byte[4];
-                    byte [] ip_raw = new byte[]{(byte) 192, (byte) 168, 4, 1};
-                    InetAddress serverAddr = InetAddress.getByAddress(ip_raw);
-                    //socket = new Socket(serverAddr, SERVERPORT);
-                    socket = sf.createSocket(serverAddr, SERVERPORT);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }*/
             }
         };
 
@@ -407,7 +352,7 @@ public class MyActivity extends AppCompatActivity {
                     byteSendBuff.put(pre);
                     byteSendBuff.put(cmd);
                     byteSendBuff.put(mSSIDEditText.getText().toString().getBytes());
-                    byteSendBuff.put(getCRC(byteSendBuff.array(), pre.length + cmd.length + mSSIDEditText.getText().length()));
+                    byteSendBuff.put(CRCUtils.getCRC(byteSendBuff.array(), pre.length + cmd.length + mSSIDEditText.getText().length()));
                     byteSendBuff.put(messageEnd);
 
                     lastMessageSent = byteSendBuff;
@@ -441,7 +386,7 @@ public class MyActivity extends AppCompatActivity {
                     byteSendBuff.put(pre);
                     byteSendBuff.put(cmd);
                     byteSendBuff.put(mPassEditText.getText().toString().getBytes());
-                    byteSendBuff.put(getCRC(byteSendBuff.array(), pre.length + cmd.length + mPassEditText.getText().length()));
+                    byteSendBuff.put(CRCUtils.getCRC(byteSendBuff.array(), pre.length + cmd.length + mPassEditText.getText().length()));
                     byteSendBuff.put(messageEnd);
 
                     lastMessageSent = byteSendBuff;
@@ -474,7 +419,7 @@ public class MyActivity extends AppCompatActivity {
                     byteSendBuff.put(messageStart);
                     byteSendBuff.put(pre);
                     byteSendBuff.put(cmd);
-                    byteSendBuff.put(getCRC(byteSendBuff.array(), pre.length + cmd.length));
+                    byteSendBuff.put(CRCUtils.getCRC(byteSendBuff.array(), pre.length + cmd.length));
                     byteSendBuff.put(messageEnd);
 
                     lastMessageSent = byteSendBuff;
@@ -594,27 +539,6 @@ public class MyActivity extends AppCompatActivity {
             listItems.add(msg);
             adapter.notifyDataSetChanged(); // next thing you have to do is check if your adapter has changed
         }
-    }
-
-    //@RequiresApi(api = Build.VERSION_CODES.O)
-    public static byte[] getCRC(byte[] payload, int len) {
-        byte[] calculatedCRC = new byte[2];
-
-        char crc = 0; // 16 bits
-        byte Aux; // 8 bits
-        int index = 1;
-
-        while(len > 0) {
-            len--;
-            Aux = (byte) ((crc ^ payload[index]) & 0x000000FF);
-            index++;
-            crc = (char) ((crc >> 8) ^ CRCUtils.CRCtbl[Byte.toUnsignedInt(Aux)]);
-        }
-
-        calculatedCRC[0] = (byte) ((crc >> 8) & 0xFF);
-        calculatedCRC[1] = (byte) (crc & 0xFF);
-
-        return calculatedCRC;
     }
 
     public static String getHex(byte [] raw) {
